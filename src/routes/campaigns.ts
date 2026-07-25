@@ -77,4 +77,27 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+// GET /api/campaigns/my-campaigns - Get logged-in creator's campaigns sorted by deadline descending
+router.get('/my-campaigns', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const creatorEmail = (req as any).user.email;
+
+    if (!creatorEmail) {
+      res.status(401).json({ error: 'Unauthorized. Email not found in token.' });
+      return;
+    }
+
+    const campaigns = await db
+      .collection('campaigns')
+      .find({ creatorEmail })
+      .sort({ deadline: -1 })
+      .toArray();
+
+    res.status(200).json(campaigns);
+  } catch (error) {
+    console.error('Error fetching creator campaigns:', error);
+    res.status(500).json({ error: 'Internal server error while fetching campaigns.' });
+  }
+});
+
 export default router;
