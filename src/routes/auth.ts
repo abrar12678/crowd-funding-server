@@ -54,7 +54,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
     // 7. Generate JWT token (expires in 7d)
     const secretKey = process.env.JWT_SECRET || 'default-secret-key';
     const token = jwt.sign(
-      { email: newUser.email, role: newUser.role },
+      { name: newUser.name, email: newUser.email, role: newUser.role },
       secretKey,
       { expiresIn: '7d' }
     );
@@ -106,7 +106,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     // 4. Generate JWT token (expires in 7d)
     const secretKey = process.env.JWT_SECRET || 'default-secret-key';
     const token = jwt.sign(
-      { email: user.email, role: user.role },
+      { name: user.name, email: user.email, role: user.role },
       secretKey,
       { expiresIn: '7d' }
     );

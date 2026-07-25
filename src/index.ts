@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { MongoClient, ServerApiVersion, ObjectId, Db } from 'mongodb';
 import authRoutes from './routes/auth';
+import campaignRoutes from './routes/campaigns';
 
 dotenv.config();
 
@@ -35,8 +36,9 @@ async function connectDB() {
     }
 }
 
-// Mount Auth Routes
+// Mount Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/campaigns', campaignRoutes);
 
 app.get('/', async (req, res) => {
     try {
