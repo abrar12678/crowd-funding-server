@@ -5,9 +5,48 @@ import { db } from '../index';
 
 const router = Router();
 
-// Protect all admin routes with JWT verification and Admin role authorization
+// Protect all routes with JWT verification
 router.use(verifyToken);
 
+// POST /api/admin/report-campaign - Submit a campaign report (Accessible by logged-in users / Supporters)
+router.post('/report-campaign', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { campaignId, campaignTitle, reason } = req.body;
+    const supporterEmail = req.body.supporterEmail || (req as any).user?.email;
+    const supporterName = req.body.supporterName || (req as any).user?.name || "Anonymous Supporter";
+
+    if (!campaignId || !campaignTitle || !reason || !supporterEmail) {
+      res.status(400).json({ error: 'supporterEmail, campaignId, campaignTitle, and reason are required.' });
+      return;
+    }
+
+    const reportDoc = {
+      supporterEmail,
+      supporterName,
+      campaignId,
+      campaignTitle,
+      reason,
+      date: new Date(),
+      status: 'pending',
+    };
+
+    const result = await db.collection('reports').insertOne(reportDoc);
+
+    res.status(201).json({
+      message: 'Campaign report submitted successfully.',
+      insertedId: result.insertedId,
+      report: {
+        _id: result.insertedId,
+        ...reportDoc,
+      },
+    });
+  } catch (error) {
+    console.error('Error submitting campaign report:', error);
+    res.status(500).json({ error: 'Internal server error while submitting campaign report.' });
+  }
+});
+
+// Admin role check for all admin management routes below
 const verifyAdmin = (req: Request, res: Response, next: NextFunction): void => {
   const role = (req as any).user?.role;
   if (role !== 'Admin') {
@@ -293,6 +332,20 @@ router.get('/pending-withdrawals', async (req: Request, res: Response): Promise<
   }
 });
 
+// Route 10: GET /api/admin/reports - Get all reports (Admin only)
+router.get('/reports', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const reports = await db
+      .collection('reports')
+      .find({})
+      .sort({ date: -1 })
+      .toArray();
+
+    res.status(200).json(reports);
+  } catch (error) {
+    console.error('Error fetching reports for admin:', error);
+    res.status(500).json({ error: 'Internal server error while fetching reports.' });
+  }
+});
+
 export default router;
-
-
