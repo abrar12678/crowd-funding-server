@@ -5,6 +5,7 @@ import { MongoClient, ServerApiVersion, ObjectId, Db } from 'mongodb';
 import authRoutes from './routes/auth';
 import campaignRoutes from './routes/campaigns';
 import dashboardRoutes from './routes/dashboard';
+import contributionRoutes from './routes/contributions';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ async function connectDB() {
 app.use('/api/auth', authRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/contributions', contributionRoutes);
 
 app.get('/', async (req, res) => {
     try {
