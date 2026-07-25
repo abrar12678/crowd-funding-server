@@ -138,4 +138,32 @@ router.get('/my-payments', async (req: Request, res: Response): Promise<void> =>
   }
 });
 
+
+// POST /api/payments/purchase-credits (Supporter)
+router.post("/purchase-credits", async (req, res) => {
+  try {
+    const email = req.user.email;
+    const name = req.user.name || "Unknown";
+    const { credits, amount } = req.body;
+    const creditsNum = Number(credits);
+    const amountNum = Number(amount);
+    if (!credits || !amount || isNaN(creditsNum) || isNaN(amountNum) || creditsNum <= 0) {
+      res.status(400).json({ error: "Valid credits and amount required." }); return;
+    }
+    await db.collection("users").updateOne({ email }, { $inc: { credits: creditsNum } });
+    await db.collection("credit_purchases").insertOne({ supporterEmail: email, supporterName: name, credits: creditsNum, amount: amountNum, paymentMethod: "simulated", status: "completed", date: new Date() });
+    const updatedUser = await db.collection("users").findOne({ email });
+    const { password, ...safe } = updatedUser;
+    res.status(200).json({ message: creditsNum + " credits purchased!", user: safe });
+  } catch (e) { res.status(500).json({ error: "Internal server error." }); }
+});
+
+// GET /api/payments/my-purchases (Supporter)
+router.get("/my-purchases", async (req, res) => {
+  try {
+    const email = req.user.email;
+    const purchases = await db.collection("credit_purchases").find({ supporterEmail: email }).sort({ date: -1 }).toArray();
+    res.status(200).json(purchases);
+  } catch (e) { res.status(500).json({ error: "Internal server error." }); }
+});
 export default router;

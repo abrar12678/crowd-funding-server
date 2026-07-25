@@ -248,4 +248,15 @@ router.patch('/reject/:contributionId', async (req: Request, res: Response): Pro
   }
 });
 
+
+// GET /api/contributions/my-approved (Supporter dashboard)
+router.get("/my-approved", async (req, res) => {
+  try {
+    const email = req.user.email;
+    const approved = await db.collection("contributions").find({ supporterEmail: email, status: "approved" }).sort({ date: -1 }).limit(10).toArray();
+    res.status(200).json(approved);
+  } catch (e) {
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
 export default router;

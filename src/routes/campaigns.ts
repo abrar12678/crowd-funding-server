@@ -4,32 +4,17 @@ import { db } from '../index';
 
 const router = Router();
 
-// -----------------------------------------------
-// PUBLIC ROUTES (no auth required)
-// -----------------------------------------------
-
-// GET /api/campaigns/top — Top 6 funded campaigns (public, no auth)
-router.get('/top', async (req: Request, res: Response): Promise<void> => {
+// GET /api/campaigns/top - Top 6 (PUBLIC)
+router.get("/top", async (req, res) => {
   try {
-    const topCampaigns = await db
-      .collection('campaigns')
-      .find({ status: 'approved' })
-      .sort({ raisedAmount: -1 })
-      .limit(6)
-      .toArray();
-
-    res.status(200).json(topCampaigns);
-  } catch (error) {
-    console.error('Error fetching top campaigns:', error);
-    res.status(500).json({ error: 'Internal server error while fetching top campaigns.' });
+    const top = await db.collection("campaigns").find({ status: "approved" }).sort({ raisedAmount: -1 }).limit(6).toArray();
+    res.status(200).json(top);
+  } catch (e) {
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// -----------------------------------------------
-// PROTECTED ROUTES (auth required)
-// -----------------------------------------------
-
-// Apply verifyToken middleware to all routes below this line
+// Apply verifyToken middleware to the whole router so only logged-in users can access
 router.use(verifyToken);
 
 // POST /api/campaigns - Create a new campaign
