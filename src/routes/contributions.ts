@@ -76,7 +76,18 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     // 7. Insert contribution document into contributions collection
     const result = await db.collection('contributions').insertOne(contributionDoc);
 
-    // 8. Return 201 success message
+    // 8. Trigger Notification for Creator
+    if (creatorEmail) {
+      await db.collection('notifications').insertOne({
+        message: `New contribution of ${contributionAmount} credits to ${campaignTitle}`,
+        toEmail: creatorEmail,
+        actionRoute: '/dashboard',
+        time: new Date(),
+        read: false,
+      });
+    }
+
+    // 9. Return 201 success message
     res.status(201).json({
       message: 'Contribution submitted successfully.',
       insertedId: result.insertedId,
@@ -158,6 +169,17 @@ router.patch('/approve/:contributionId', async (req: Request, res: Response): Pr
       { $inc: { raisedAmount: Number(contribution.amount) || 0 } }
     );
 
+    // 5. Trigger Notification for Supporter
+    if (contribution.supporterEmail) {
+      await db.collection('notifications').insertOne({
+        message: `Your contribution of ${contribution.amount} credits to ${contribution.campaignTitle || 'campaign'} was approved`,
+        toEmail: contribution.supporterEmail,
+        actionRoute: '/dashboard/my-contributions',
+        time: new Date(),
+        read: false,
+      });
+    }
+
     res.status(200).json({
       message: 'Contribution approved successfully and campaign raised amount updated.',
     });
@@ -206,6 +228,15 @@ router.patch('/reject/:contributionId', async (req: Request, res: Response): Pro
         { email: contribution.supporterEmail },
         { $inc: { credits: Number(contribution.amount) || 0 } }
       );
+
+      // 5. Trigger Notification for Supporter
+      await db.collection('notifications').insertOne({
+        message: `Your contribution of ${contribution.amount} credits to ${contribution.campaignTitle || 'campaign'} was rejected`,
+        toEmail: contribution.supporterEmail,
+        actionRoute: '/dashboard/my-contributions',
+        time: new Date(),
+        read: false,
+      });
     }
 
     res.status(200).json({

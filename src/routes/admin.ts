@@ -201,4 +201,98 @@ router.patch('/approve-withdrawal/:id', async (req: Request, res: Response): Pro
   }
 });
 
+// Route 6: GET /api/admin/pending-campaigns - Get all campaigns pending approval
+router.get('/pending-campaigns', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const pendingCampaigns = await db
+      .collection('campaigns')
+      .find({ status: 'pending' })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.status(200).json(pendingCampaigns);
+  } catch (error) {
+    console.error('Error fetching pending campaigns:', error);
+    res.status(500).json({ error: 'Internal server error while fetching pending campaigns.' });
+  }
+});
+
+// Route 7: PATCH /api/admin/approve-campaign/:id - Approve a pending campaign
+router.patch('/approve-campaign/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const idParam = req.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+    if (!id || typeof id !== 'string') {
+      res.status(400).json({ error: 'Valid campaign ID is required.' });
+      return;
+    }
+
+    const campaignIdQuery = ObjectId.isValid(id) ? new ObjectId(id) : id;
+
+    const result = await db.collection('campaigns').updateOne(
+      { _id: campaignIdQuery as any },
+      { $set: { status: 'approved', approvedAt: new Date() } }
+    );
+
+    if (result.matchedCount === 0) {
+      res.status(404).json({ error: 'Campaign not found.' });
+      return;
+    }
+
+    res.status(200).json({ message: 'Campaign approved successfully.' });
+  } catch (error) {
+    console.error('Error approving campaign:', error);
+    res.status(500).json({ error: 'Internal server error while approving campaign.' });
+  }
+});
+
+// Route 8: PATCH /api/admin/reject-campaign/:id - Reject a pending campaign
+router.patch('/reject-campaign/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const idParam = req.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+    if (!id || typeof id !== 'string') {
+      res.status(400).json({ error: 'Valid campaign ID is required.' });
+      return;
+    }
+
+    const campaignIdQuery = ObjectId.isValid(id) ? new ObjectId(id) : id;
+
+    const result = await db.collection('campaigns').updateOne(
+      { _id: campaignIdQuery as any },
+      { $set: { status: 'rejected', rejectedAt: new Date() } }
+    );
+
+    if (result.matchedCount === 0) {
+      res.status(404).json({ error: 'Campaign not found.' });
+      return;
+    }
+
+    res.status(200).json({ message: 'Campaign rejected successfully.' });
+  } catch (error) {
+    console.error('Error rejecting campaign:', error);
+    res.status(500).json({ error: 'Internal server error while rejecting campaign.' });
+  }
+});
+
+// Route 9: GET /api/admin/pending-withdrawals - Get all pending creator withdrawal requests
+router.get('/pending-withdrawals', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const pendingWithdrawals = await db
+      .collection('withdrawals')
+      .find({ status: 'pending' })
+      .sort({ date: -1 })
+      .toArray();
+
+    res.status(200).json(pendingWithdrawals);
+  } catch (error) {
+    console.error('Error fetching pending withdrawals for admin:', error);
+    res.status(500).json({ error: 'Internal server error while fetching pending withdrawals.' });
+  }
+});
+
 export default router;
+
+

@@ -8,6 +8,7 @@ import dashboardRoutes from './routes/dashboard';
 import contributionRoutes from './routes/contributions';
 import paymentRoutes from './routes/payments';
 import adminRoutes from './routes/admin';
+import notificationRoutes from './routes/notifications';
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/contributions', contributionRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/', async (req, res) => {
     try {
