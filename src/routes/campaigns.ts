@@ -100,4 +100,29 @@ router.get('/my-campaigns', async (req: Request, res: Response): Promise<void> =
   }
 });
 
+// GET /api/campaigns/approved - Get all approved campaigns whose deadline has not passed sorted by newest first
+router.get('/approved', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const now = new Date();
+    const nowISO = now.toISOString();
+
+    const approvedCampaigns = await db
+      .collection('campaigns')
+      .find({
+        status: 'approved',
+        $or: [
+          { deadline: { $gte: now } },
+          { deadline: { $gte: nowISO } },
+        ],
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.status(200).json(approvedCampaigns);
+  } catch (error) {
+    console.error('Error fetching approved campaigns:', error);
+    res.status(500).json({ error: 'Internal server error while fetching approved campaigns.' });
+  }
+});
+
 export default router;
