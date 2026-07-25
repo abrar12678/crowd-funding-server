@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import { db } from '../index';
 
 const router = Router();
@@ -123,6 +124,94 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('Login Error:', error);
     res.status(500).json({ error: 'Internal server error during login.' });
+  }
+});
+
+// Google OAuth2 Client for verifying ID tokens
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// POST /api/auth/google — Google Sign-In (login or auto-register)
+router.post('/google', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { credential } = req.body;
+
+    // 1. Input Validation
+    if (!credential) {
+      res.status(400).json({ error: 'Google credential is required.' });
+      return;
+    }
+
+    // 2. Verify the Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload || !payload.email) {
+      res.status(400).json({ error: 'Invalid Google token payload.' });
+      return;
+    }
+
+    const { email, name, picture, sub: googleId } = payload;
+
+    // 3. Check if user already exists
+    const existingUser = await db.collection('users').findOne({ email });
+
+    if (existingUser) {
+      // 4a. User exists — log them in
+      const secretKey = process.env.JWT_SECRET || 'default-secret-key';
+      const token = jwt.sign(
+        { name: existingUser.name, email: existingUser.email, role: existingUser.role },
+        secretKey,
+        { expiresIn: '7d' }
+      );
+
+      const { password: _, ...userWithoutPassword } = existingUser as any;
+
+      res.status(200).json({
+        message: 'Login successful via Google',
+        token,
+        user: userWithoutPassword,
+      });
+    } else {
+      // 4b. New user — create account with default Supporter role
+      const newUser = {
+        name: name || 'Google User',
+        email,
+        password: '',
+        profilepictureurl: picture || '',
+        role: 'Supporter',
+        credits: 50,
+        provider: 'google',
+        googleId,
+        createdAt: new Date(),
+      };
+
+      const result = await db.collection('users').insertOne(newUser);
+
+      const secretKey = process.env.JWT_SECRET || 'default-secret-key';
+      const token = jwt.sign(
+        { name: newUser.name, email: newUser.email, role: newUser.role },
+        secretKey,
+        { expiresIn: '7d' }
+      );
+
+      const { password: _, ...userWithoutPassword } = newUser as any;
+
+      res.status(201).json({
+        message: 'Registration successful via Google',
+        token,
+        user: {
+          _id: result.insertedId,
+          ...userWithoutPassword,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(401).json({ error: 'Google authentication failed.' });
   }
 });
 

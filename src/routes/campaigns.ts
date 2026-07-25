@@ -4,7 +4,32 @@ import { db } from '../index';
 
 const router = Router();
 
-// Apply verifyToken middleware to the whole router so only logged-in users can access
+// -----------------------------------------------
+// PUBLIC ROUTES (no auth required)
+// -----------------------------------------------
+
+// GET /api/campaigns/top — Top 6 funded campaigns (public, no auth)
+router.get('/top', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const topCampaigns = await db
+      .collection('campaigns')
+      .find({ status: 'approved' })
+      .sort({ raisedAmount: -1 })
+      .limit(6)
+      .toArray();
+
+    res.status(200).json(topCampaigns);
+  } catch (error) {
+    console.error('Error fetching top campaigns:', error);
+    res.status(500).json({ error: 'Internal server error while fetching top campaigns.' });
+  }
+});
+
+// -----------------------------------------------
+// PROTECTED ROUTES (auth required)
+// -----------------------------------------------
+
+// Apply verifyToken middleware to all routes below this line
 router.use(verifyToken);
 
 // POST /api/campaigns - Create a new campaign
