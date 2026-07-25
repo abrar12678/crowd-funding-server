@@ -8,6 +8,89 @@ const router = Router();
 // Protect all contribution routes with JWT verification
 router.use(verifyToken);
 
+// POST /api/contributions - Make a new contribution (for Supporters)
+router.post('/', async (req: Request, res: Response): Promise<void> => {
+  try {
+    // 1. Get supporter details from token
+    const supporterEmail = (req as any).user.email;
+    const supporterName = (req as any).user.name || "Unknown Supporter";
+
+    if (!supporterEmail) {
+      res.status(401).json({ error: 'Unauthorized. Email not found in token.' });
+      return;
+    }
+
+    // 2. Extract and validate fields from req.body
+    const { campaignId, campaignTitle, amount } = req.body;
+    const contributionAmount = Number(amount);
+
+    if (!campaignId || !campaignTitle || !amount || isNaN(contributionAmount) || contributionAmount <= 0) {
+      res.status(400).json({ error: 'campaignId, campaignTitle, and a valid positive amount are required.' });
+      return;
+    }
+
+    // 3. Business Logic - Check Credits in users collection
+    const supporter = await db.collection('users').findOne({ email: supporterEmail });
+
+    if (!supporter) {
+      res.status(404).json({ error: 'Supporter user profile not found.' });
+      return;
+    }
+
+    const currentCredits = Number(supporter.credits || 0);
+
+    if (currentCredits < contributionAmount) {
+      res.status(400).json({ error: 'Insufficient credits.' });
+      return;
+    }
+
+    // 4. Business Logic - Deduct Credits using $inc
+    await db.collection('users').updateOne(
+      { email: supporterEmail },
+      { $inc: { credits: -contributionAmount } }
+    );
+
+    // 5. Find campaign to get creatorEmail & creatorName
+    const campaignIdQuery = typeof campaignId === 'string' && ObjectId.isValid(campaignId)
+      ? new ObjectId(campaignId)
+      : campaignId;
+
+    const campaign = await db.collection('campaigns').findOne({ _id: campaignIdQuery });
+
+    const creatorEmail = campaign?.creatorEmail || '';
+    const creatorName = campaign?.creatorName || 'Unknown Creator';
+
+    // 6. Create contribution document
+    const contributionDoc = {
+      campaignId,
+      campaignTitle,
+      amount: contributionAmount,
+      supporterEmail,
+      supporterName,
+      creatorEmail,
+      creatorName,
+      status: 'pending',
+      date: new Date(),
+    };
+
+    // 7. Insert contribution document into contributions collection
+    const result = await db.collection('contributions').insertOne(contributionDoc);
+
+    // 8. Return 201 success message
+    res.status(201).json({
+      message: 'Contribution submitted successfully.',
+      insertedId: result.insertedId,
+      contribution: {
+        _id: result.insertedId,
+        ...contributionDoc,
+      },
+    });
+  } catch (error) {
+    console.error('Error creating contribution:', error);
+    res.status(500).json({ error: 'Internal server error while processing contribution.' });
+  }
+});
+
 // Route 1: GET /api/contributions/pending-for-me (Show pending contributions for creator)
 router.get('/pending-for-me', async (req: Request, res: Response): Promise<void> => {
   try {
