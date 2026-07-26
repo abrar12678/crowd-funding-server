@@ -249,6 +249,47 @@ router.patch('/reject/:contributionId', async (req: Request, res: Response): Pro
 });
 
 
+// GET /api/contributions/campaign/:campaignId — All contributions for a specific campaign (Creator)
+router.get('/campaign/:campaignId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const creatorEmail = (req as any).user.email;
+    const campaignIdParam = req.params.campaignId;
+    const campaignId = Array.isArray(campaignIdParam) ? campaignIdParam[0] : campaignIdParam;
+
+    if (!campaignId) {
+      res.status(400).json({ error: 'Campaign ID is required.' });
+      return;
+    }
+
+    // Verify the campaign belongs to this creator
+    const campaignIdQuery = ObjectId.isValid(campaignId) ? new ObjectId(campaignId) : campaignId;
+    const campaign = await db.collection('campaigns').findOne({ _id: campaignIdQuery as any });
+
+    if (!campaign) {
+      res.status(404).json({ error: 'Campaign not found.' });
+      return;
+    }
+
+    if (campaign.creatorEmail !== creatorEmail) {
+      res.status(403).json({ error: 'You can only view contributions for your own campaigns.' });
+      return;
+    }
+
+    const contributions = await db
+      .collection('contributions')
+      .find({
+        campaignId: { $in: [campaignId, campaign._id.toString()] },
+      } as any)
+      .sort({ date: -1 })
+      .toArray();
+
+    res.status(200).json(contributions);
+  } catch (error) {
+    console.error('Error fetching campaign contributions:', error);
+    res.status(500).json({ error: 'Internal server error while fetching campaign contributions.' });
+  }
+});
+
 // GET /api/contributions/my-approved (Supporter dashboard)
 router.get("/my-approved", async (req, res) => {
   try {

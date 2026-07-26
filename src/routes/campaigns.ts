@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { ObjectId } from 'mongodb';
 import { verifyToken } from '../middleware/auth';
 import { db } from '../index';
 
@@ -132,6 +133,119 @@ router.get('/approved', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('Error fetching approved campaigns:', error);
     res.status(500).json({ error: 'Internal server error while fetching approved campaigns.' });
+  }
+});
+
+// PATCH /api/campaigns/update/:id — Update campaign (title, story, rewardInfo)
+router.patch('/update/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const idParam = req.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+    const creatorEmail = (req as any).user.email;
+
+    if (!id || typeof id !== 'string' || !ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'Invalid campaign ID format.' });
+      return;
+    }
+
+    const { title, story, rewardInfo } = req.body;
+
+    if (!title && !story && !rewardInfo) {
+      res.status(400).json({ error: 'At least one field (title, story, rewardInfo) is required to update.' });
+      return;
+    }
+
+    const campaignIdQuery = new ObjectId(id);
+
+    // Verify the campaign belongs to this creator
+    const campaign = await db.collection('campaigns').findOne({ _id: campaignIdQuery });
+    if (!campaign) {
+      res.status(404).json({ error: 'Campaign not found.' });
+      return;
+    }
+    if (campaign.creatorEmail !== creatorEmail) {
+      res.status(403).json({ error: 'You can only update your own campaigns.' });
+      return;
+    }
+
+    const updateFields: Record<string, string> = {};
+    if (title) updateFields.title = title;
+    if (story) updateFields.story = story;
+    if (rewardInfo) updateFields.rewardInfo = rewardInfo;
+
+    await db.collection('campaigns').updateOne(
+      { _id: campaignIdQuery },
+      { $set: { ...updateFields, updatedAt: new Date() } }
+    );
+
+    res.status(200).json({ message: 'Campaign updated successfully.' });
+  } catch (error) {
+    console.error('Error updating campaign:', error);
+    res.status(500).json({ error: 'Internal server error while updating campaign.' });
+  }
+});
+
+// DELETE /api/campaigns/delete/:id — Delete campaign + refund approved contributors
+router.delete('/delete/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const idParam = req.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+    const creatorEmail = (req as any).user.email;
+
+    if (!id || typeof id !== 'string' || !ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'Invalid campaign ID format.' });
+      return;
+    }
+
+    const campaignIdQuery = new ObjectId(id);
+
+    // 1. Find the campaign
+    const campaign = await db.collection('campaigns').findOne({ _id: campaignIdQuery });
+    if (!campaign) {
+      res.status(404).json({ error: 'Campaign not found.' });
+      return;
+    }
+
+    // 2. Verify ownership
+    if (campaign.creatorEmail !== creatorEmail) {
+      res.status(403).json({ error: 'You can only delete your own campaigns.' });
+      return;
+    }
+
+    const campaignIdStr = campaign._id.toString();
+
+    // 3. Find all approved contributions for this campaign and refund
+    const approvedContributions = await db
+      .collection('contributions')
+      .find({
+        campaignId: { $in: [id, campaignIdStr] },
+        status: 'approved',
+      } as any)
+      .toArray();
+
+    for (const contribution of approvedContributions) {
+      if (contribution.supporterEmail && contribution.amount) {
+        await db.collection('users').updateOne(
+          { email: contribution.supporterEmail },
+          { $inc: { credits: Number(contribution.amount) || 0 } }
+        );
+      }
+    }
+
+    // 4. Delete all contributions related to this campaign
+    await db.collection('contributions').deleteMany({
+      campaignId: { $in: [id, campaignIdStr] },
+    } as any);
+
+    // 5. Delete the campaign
+    await db.collection('campaigns').deleteOne({ _id: campaign._id });
+
+    res.status(200).json({
+      message: 'Campaign deleted successfully. Approved contributions refunded to supporters.',
+    });
+  } catch (error) {
+    console.error('Error deleting campaign:', error);
+    res.status(500).json({ error: 'Internal server error while deleting campaign.' });
   }
 });
 
