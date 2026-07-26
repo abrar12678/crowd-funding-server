@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
-import { verifyToken } from '../middleware/auth';
+import { verifyToken, verifyCreator } from '../middleware/auth';
 import { db } from '../index';
 
 const router = Router();
@@ -18,8 +18,8 @@ router.get("/top", async (req, res) => {
 // Apply verifyToken middleware to the whole router so only logged-in users can access
 router.use(verifyToken);
 
-// POST /api/campaigns - Create a new campaign
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+// POST /api/campaigns - Create a new campaign (Creator only)
+router.post('/', verifyCreator, async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       title,
@@ -88,8 +88,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// GET /api/campaigns/my-campaigns - Get logged-in creator's campaigns sorted by deadline descending
-router.get('/my-campaigns', async (req: Request, res: Response): Promise<void> => {
+// GET /api/campaigns/my-campaigns - Get logged-in creator's campaigns (Creator only)
+router.get('/my-campaigns', verifyCreator, async (req: Request, res: Response): Promise<void> => {
   try {
     const creatorEmail = (req as any).user.email;
 
@@ -111,7 +111,7 @@ router.get('/my-campaigns', async (req: Request, res: Response): Promise<void> =
   }
 });
 
-// GET /api/campaigns/approved - Get all approved campaigns whose deadline has not passed sorted by newest first
+// GET /api/campaigns/approved - Get all approved campaigns whose deadline has not passed (all authenticated users)
 router.get('/approved', async (req: Request, res: Response): Promise<void> => {
   try {
     const now = new Date();
@@ -136,8 +136,8 @@ router.get('/approved', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// PATCH /api/campaigns/update/:id — Update campaign (title, story, rewardInfo)
-router.patch('/update/:id', async (req: Request, res: Response): Promise<void> => {
+// PATCH /api/campaigns/update/:id — Update campaign (Creator only)
+router.patch('/update/:id', verifyCreator, async (req: Request, res: Response): Promise<void> => {
   try {
     const idParam = req.params.id;
     const id = Array.isArray(idParam) ? idParam[0] : idParam;
@@ -185,8 +185,8 @@ router.patch('/update/:id', async (req: Request, res: Response): Promise<void> =
   }
 });
 
-// DELETE /api/campaigns/delete/:id — Delete campaign + refund approved contributors
-router.delete('/delete/:id', async (req: Request, res: Response): Promise<void> => {
+// DELETE /api/campaigns/delete/:id — Delete campaign + refund approved contributors (Creator only)
+router.delete('/delete/:id', verifyCreator, async (req: Request, res: Response): Promise<void> => {
   try {
     const idParam = req.params.id;
     const id = Array.isArray(idParam) ? idParam[0] : idParam;

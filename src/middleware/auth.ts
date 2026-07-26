@@ -25,3 +25,31 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction): vo
     res.status(401).json({ error: 'Invalid or expired token.' });
   }
 };
+
+// Role-based authorization middleware — must be used AFTER verifyToken
+export const verifyCreator = (req: Request, res: Response, next: NextFunction): void => {
+  const role = (req as any).user?.role;
+  if (role !== 'Creator') {
+    res.status(403).json({ error: 'Access denied. Creator role required.' });
+    return;
+  }
+  next();
+};
+
+export const verifySupporter = (req: Request, res: Response, next: NextFunction): void => {
+  const role = (req as any).user?.role;
+  if (role !== 'Supporter') {
+    res.status(403).json({ error: 'Access denied. Supporter role required.' });
+    return;
+  }
+  next();
+};
+
+export const verifyAdmin = (req: Request, res: Response, next: NextFunction): void => {
+  const role = (req as any).user?.role;
+  if (role !== 'Admin') {
+    res.status(403).json({ error: 'Access denied. Admin role required.' });
+    return;
+  }
+  next();
+};

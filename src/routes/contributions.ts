@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
-import { verifyToken } from '../middleware/auth';
+import { verifyToken, verifySupporter, verifyCreator } from '../middleware/auth';
 import { db } from '../index';
 
 const router = Router();
@@ -8,8 +8,8 @@ const router = Router();
 // Protect all contribution routes with JWT verification
 router.use(verifyToken);
 
-// POST /api/contributions - Make a new contribution (for Supporters)
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+// POST /api/contributions - Make a new contribution (Supporter only)
+router.post('/', verifySupporter, async (req: Request, res: Response): Promise<void> => {
   try {
     // 1. Get supporter details from token
     const supporterEmail = (req as any).user.email;
@@ -102,8 +102,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// Route 1: GET /api/contributions/pending-for-me (Show pending contributions for creator)
-router.get('/pending-for-me', async (req: Request, res: Response): Promise<void> => {
+// GET /api/contributions/pending-for-me (Creator only)
+router.get('/pending-for-me', verifyCreator, async (req: Request, res: Response): Promise<void> => {
   try {
     const creatorEmail = (req as any).user.email;
 
@@ -125,8 +125,8 @@ router.get('/pending-for-me', async (req: Request, res: Response): Promise<void>
   }
 });
 
-// Route 2: PATCH /api/contributions/approve/:contributionId (Approve contribution)
-router.patch('/approve/:contributionId', async (req: Request, res: Response): Promise<void> => {
+// PATCH /api/contributions/approve/:contributionId (Creator only)
+router.patch('/approve/:contributionId', verifyCreator, async (req: Request, res: Response): Promise<void> => {
   try {
     const contributionIdParam = req.params.contributionId;
     const contributionId = Array.isArray(contributionIdParam) ? contributionIdParam[0] : contributionIdParam;
@@ -189,8 +189,8 @@ router.patch('/approve/:contributionId', async (req: Request, res: Response): Pr
   }
 });
 
-// Route 3: PATCH /api/contributions/reject/:contributionId (Reject contribution & refund credits)
-router.patch('/reject/:contributionId', async (req: Request, res: Response): Promise<void> => {
+// PATCH /api/contributions/reject/:contributionId (Creator only)
+router.patch('/reject/:contributionId', verifyCreator, async (req: Request, res: Response): Promise<void> => {
   try {
     const contributionIdParam = req.params.contributionId;
     const contributionId = Array.isArray(contributionIdParam) ? contributionIdParam[0] : contributionIdParam;
@@ -249,8 +249,8 @@ router.patch('/reject/:contributionId', async (req: Request, res: Response): Pro
 });
 
 
-// GET /api/contributions/campaign/:campaignId — All contributions for a specific campaign (Creator)
-router.get('/campaign/:campaignId', async (req: Request, res: Response): Promise<void> => {
+// GET /api/contributions/campaign/:campaignId — All contributions for a specific campaign (Creator only)
+router.get('/campaign/:campaignId', verifyCreator, async (req: Request, res: Response): Promise<void> => {
   try {
     const creatorEmail = (req as any).user.email;
     const campaignIdParam = req.params.campaignId;
@@ -291,7 +291,7 @@ router.get('/campaign/:campaignId', async (req: Request, res: Response): Promise
 });
 
 // GET /api/contributions/my-approved (Supporter dashboard)
-router.get("/my-approved", async (req, res) => {
+router.get("/my-approved", verifySupporter, async (req, res) => {
   try {
     const email = req.user.email;
     const approved = await db.collection("contributions").find({ supporterEmail: email, status: "approved" }).sort({ date: -1 }).limit(10).toArray();

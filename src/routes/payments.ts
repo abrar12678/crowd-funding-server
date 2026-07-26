@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { verifyToken } from '../middleware/auth';
+import { verifyToken, verifySupporter, verifyCreator } from '../middleware/auth';
 import { db } from '../index';
 
 const router = Router();
@@ -7,8 +7,8 @@ const router = Router();
 // Protect all payment routes with JWT verification
 router.use(verifyToken);
 
-// Route 1: GET /api/payments/my-contributions (For Supporter - Paginated)
-router.get('/my-contributions', async (req: Request, res: Response): Promise<void> => {
+// GET /api/payments/my-contributions (Supporter only)
+router.get('/my-contributions', verifySupporter, async (req: Request, res: Response): Promise<void> => {
   try {
     const supporterEmail = (req as any).user.email;
 
@@ -44,8 +44,8 @@ router.get('/my-contributions', async (req: Request, res: Response): Promise<voi
   }
 });
 
-// Route 2: POST /api/payments/request-withdrawal (For Creator)
-router.post('/request-withdrawal', async (req: Request, res: Response): Promise<void> => {
+// POST /api/payments/request-withdrawal (Creator only)
+router.post('/request-withdrawal', verifyCreator, async (req: Request, res: Response): Promise<void> => {
   try {
     const creatorEmail = (req as any).user.email;
     const creatorName = (req as any).user.name || "Unknown Creator";
@@ -115,8 +115,8 @@ router.post('/request-withdrawal', async (req: Request, res: Response): Promise<
   }
 });
 
-// Route 3: GET /api/payments/my-payments (For Creator)
-router.get('/my-payments', async (req: Request, res: Response): Promise<void> => {
+// GET /api/payments/my-payments (Creator only)
+router.get('/my-payments', verifyCreator, async (req: Request, res: Response): Promise<void> => {
   try {
     const creatorEmail = (req as any).user.email;
 
@@ -139,8 +139,8 @@ router.get('/my-payments', async (req: Request, res: Response): Promise<void> =>
 });
 
 
-// POST /api/payments/purchase-credits (Supporter)
-router.post("/purchase-credits", async (req, res) => {
+// POST /api/payments/purchase-credits (Supporter only)
+router.post("/purchase-credits", verifySupporter, async (req, res) => {
   try {
     const email = req.user.email;
     const name = req.user.name || "Unknown";
@@ -158,8 +158,8 @@ router.post("/purchase-credits", async (req, res) => {
   } catch (e) { res.status(500).json({ error: "Internal server error." }); }
 });
 
-// GET /api/payments/my-purchases (Supporter)
-router.get("/my-purchases", async (req, res) => {
+// GET /api/payments/my-purchases (Supporter only)
+router.get("/my-purchases", verifySupporter, async (req, res) => {
   try {
     const email = req.user.email;
     const purchases = await db.collection("credit_purchases").find({ supporterEmail: email }).sort({ date: -1 }).toArray();

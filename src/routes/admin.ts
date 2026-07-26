@@ -1,6 +1,6 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
-import { verifyToken } from '../middleware/auth';
+import { verifyToken, verifyAdmin } from '../middleware/auth';
 import { db } from '../index';
 
 const router = Router();
@@ -46,16 +46,7 @@ router.post('/report-campaign', async (req: Request, res: Response): Promise<voi
   }
 });
 
-// Admin role check for all admin management routes below
-const verifyAdmin = (req: Request, res: Response, next: NextFunction): void => {
-  const role = (req as any).user?.role;
-  if (role !== 'Admin') {
-    res.status(403).json({ error: 'Access denied. Admin role required.' });
-    return;
-  }
-  next();
-};
-
+// All routes below require Admin role
 router.use(verifyAdmin);
 
 // Route 1: GET /api/admin/users - Get all users (excluding passwords)
